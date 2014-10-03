@@ -1136,12 +1136,42 @@ public class QueryExecutorImpl implements QueryExecutor {
 
         if (subqueries == null)
         {
-            estimatedReceiveBufferBytes += NODATA_QUERY_RESPONSE_SIZE_BYTES;
-            System.err.println("Buffer is " + estimatedReceiveBufferBytes); //XXX
+        	//XXX HACK to estimate receive byte size and force a flush
+        	SimpleQuery sq = (SimpleQuery) query;
+        	if (!disallowBatching && sq.isStatementDescribed()) {
+        		long estimatedResponseSize = NODATA_QUERY_RESPONSE_SIZE_BYTES;
+            	Field[] fs = sq.getFields();
+	        	for (int i = 0; i < fs.length; i++) {
+	        		Field f = fs[i];
+	        		final int fieldLength = f.getLength();
+	        		if (fieldLength < 1 || fieldLength >= 65535)
+	        		{
+	        			// Field length unknown or large; we can't make any
+	        			// safe estimates about the result size, so we have to
+	        			// fall back to sending queries individually.
+	        			System.err.println("Unbounded or large field " + f + " at pos " + i + ", disabling batching");
+	        			disallowBatching = true;
+	        			break;
+	        		}
+	        		estimatedResponseSize += fieldLength;
+	        	}
+	        	if (!disallowBatching) {
+	        		System.err.println("Estimated response size of " + estimatedResponseSize
+	        						   + ", buffer will be at " + estimatedReceiveBufferBytes);
+	        		
+	        		estimatedReceiveBufferBytes += estimatedResponseSize;
+	        	}
+        	}
+        	else
+        	{
+        		estimatedReceiveBufferBytes += NODATA_QUERY_RESPONSE_SIZE_BYTES;
+        	}
             if (disallowBatching || estimatedReceiveBufferBytes >= MAX_BUFFERED_RECV_BYTES)
             {
                 if (logger.logDebug())
-                    logger.debug("Forcing Sync, receive buffer full or batching disallowed");
+                    logger.debug("Forcing Sync, receive buffer full or batching disallowed. disallowBatching: "
+                    			 + disallowBatching + ", buffer at " + estimatedReceiveBufferBytes
+                    			 + " of " + MAX_BUFFERED_RECV_BYTES );
                 sendSync();
                 processResults(trackingHandler, flags);
                 estimatedReceiveBufferBytes = 0;
