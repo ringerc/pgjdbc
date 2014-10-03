@@ -2850,12 +2850,21 @@ public abstract class AbstractJdbc2Statement implements BaseStatement
         batchStatements.clear();
         batchParameters.clear();
 
-        int flags;
+        int flags = 0;
+
+        // Force a Describe before any execution? We need to do this if we're going
+        // to send anything dependent on the Desribe results, e.g. binary parameters.
         boolean preDescribe = false;
 
         if (wantsGeneratedKeysAlways) {
+            // If a batch requests generated keys, we disable batching internally
+            // and send each statement individually. See v3.QueryExecutorImpl
+            // and the comments on MAX_BUFFERED_RECV_BYTES .
+            //
             flags = QueryExecutor.QUERY_BOTH_ROWS_AND_STATUS | QueryExecutor.QUERY_DISALLOW_BATCHING;
         } else {
+            // If a batch hasn't specified that it wants generated keys, using the appropriate
+            // Connection.createStatement(...) interfaces, disallow any result set.
             flags = QueryExecutor.QUERY_NO_RESULTS;
         }
 
