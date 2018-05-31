@@ -9,6 +9,7 @@ import org.postgresql.PGNotification;
 import org.postgresql.PGProperty;
 import org.postgresql.jdbc.AutoSave;
 import org.postgresql.jdbc.PreferQueryMode;
+import org.postgresql.util.GT;
 import org.postgresql.util.HostSpec;
 import org.postgresql.util.LruCache;
 import org.postgresql.util.PSQLException;
@@ -40,7 +41,7 @@ public abstract class QueryExecutorBase implements QueryExecutor {
   private final boolean reWriteBatchedInserts;
   private final boolean columnSanitiserDisabled;
   private final PreferQueryMode preferQueryMode;
-  private AutoSave autoSave;
+  protected AutoSave autoSave;
   private boolean flushCacheOnDeallocate = true;
 
   // default value for server versions that don't report standard_conforming_strings
@@ -62,6 +63,11 @@ public abstract class QueryExecutorBase implements QueryExecutor {
     this.columnSanitiserDisabled = PGProperty.DISABLE_COLUMN_SANITISER.getBoolean(info);
     String preferMode = PGProperty.PREFER_QUERY_MODE.get(info);
     this.preferQueryMode = PreferQueryMode.of(preferMode);
+    /*
+     * The connection factory will make sure to set the server's initial
+     * autosave state to match what we've been assigned here, or abort the
+     * connection.
+     */
     this.autoSave = AutoSave.of(PGProperty.AUTOSAVE.get(info));
     this.cachedQueryCreateAction = new CachedQueryCreateAction(this);
     statementCache = new LruCache<Object, CachedQuery>(
@@ -337,10 +343,6 @@ public abstract class QueryExecutorBase implements QueryExecutor {
 
   public AutoSave getAutoSave() {
     return autoSave;
-  }
-
-  public void setAutoSave(AutoSave autoSave) {
-    this.autoSave = autoSave;
   }
 
   protected boolean willHealViaReparse(SQLException e) {

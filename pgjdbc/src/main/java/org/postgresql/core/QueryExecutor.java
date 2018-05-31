@@ -429,7 +429,7 @@ public interface QueryExecutor extends TypeTransferModeRegistry {
 
   AutoSave getAutoSave();
 
-  void setAutoSave(AutoSave autoSave);
+  void setAutoSave(AutoSave autoSave) throws SQLException;
 
   boolean willHealOnRetry(SQLException e);
 

@@ -21,6 +21,7 @@ import org.postgresql.hostchooser.HostChooser;
 import org.postgresql.hostchooser.HostChooserFactory;
 import org.postgresql.hostchooser.HostRequirement;
 import org.postgresql.hostchooser.HostStatus;
+import org.postgresql.jdbc.AutoSave;
 import org.postgresql.sspi.ISSPIClient;
 import org.postgresql.util.GT;
 import org.postgresql.util.HostSpec;
@@ -149,47 +150,8 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
 
       PGStream newStream = null;
       try {
-        newStream = new PGStream(socketFactory, hostSpec, connectTimeout);
-
-        // Construct and send an ssl startup packet if requested.
-        if (trySSL) {
-          newStream = enableSSL(newStream, requireSSL, info, connectTimeout);
-        }
-
-        // Set the socket timeout if the "socketTimeout" property has been set.
-        int socketTimeout = PGProperty.SOCKET_TIMEOUT.getInt(info);
-        if (socketTimeout > 0) {
-          newStream.getSocket().setSoTimeout(socketTimeout * 1000);
-        }
-
-        // Enable TCP keep-alive probe if required.
-        newStream.getSocket().setKeepAlive(requireTCPKeepAlive);
-
-        // Try to set SO_SNDBUF and SO_RECVBUF socket options, if requested.
-        // If receiveBufferSize and send_buffer_size are set to a value greater
-        // than 0, adjust. -1 means use the system default, 0 is ignored since not
-        // supported.
-
-        // Set SO_RECVBUF read buffer size
-        int receiveBufferSize = PGProperty.RECEIVE_BUFFER_SIZE.getInt(info);
-        if (receiveBufferSize > -1) {
-          // value of 0 not a valid buffer size value
-          if (receiveBufferSize > 0) {
-            newStream.getSocket().setReceiveBufferSize(receiveBufferSize);
-          } else {
-            LOGGER.log(Level.WARNING, "Ignore invalid value for receiveBufferSize: {0}", receiveBufferSize);
-          }
-        }
-
-        // Set SO_SNDBUF write buffer size
-        int sendBufferSize = PGProperty.SEND_BUFFER_SIZE.getInt(info);
-        if (sendBufferSize > -1) {
-          if (sendBufferSize > 0) {
-            newStream.getSocket().setSendBufferSize(sendBufferSize);
-          } else {
-            LOGGER.log(Level.WARNING, "Ignore invalid value for sendBufferSize: {0}", sendBufferSize);
-          }
-        }
+        newStream = initializeConnectionStream(socketFactory, hostSpec, connectTimeout, trySSL,
+            requireSSL, info, requireTCPKeepAlive);
 
         if (LOGGER.isLoggable(Level.FINE)) {
           LOGGER.log(Level.FINE, "Receive Buffer Size is {0}", newStream.getSocket().getReceiveBufferSize());
@@ -197,16 +159,16 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
         }
 
         List<String[]> paramList = getParametersForStartup(user, database, info);
+        int cancelSignalTimeout = PGProperty.CANCEL_SIGNAL_TIMEOUT.getInt(info) * 1000;
+
         sendStartupPacket(newStream, paramList);
 
         // Do authentication (until AuthenticationOk).
         doAuthentication(newStream, hostSpec.getHost(), user, info);
 
-        int cancelSignalTimeout = PGProperty.CANCEL_SIGNAL_TIMEOUT.getInt(info) * 1000;
-
         // Do final startup.
         QueryExecutor queryExecutor = new QueryExecutorImpl(newStream, user, database,
-            cancelSignalTimeout, info);
+            cancelSignalTimeout, info, false);
 
         // Check Master or Secondary
         HostStatus hostStatus = HostStatus.ConnectOK;
@@ -264,6 +226,55 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
     throw new PSQLException(GT
         .tr("Could not find a server with specified targetServerType: {0}", targetServerType),
         PSQLState.CONNECTION_UNABLE_TO_CONNECT);
+  }
+
+  private PGStream initializeConnectionStream(SocketFactory socketFactory, HostSpec hostSpec,
+      int connectTimeout, boolean trySSL, boolean requireSSL, Properties info, boolean requireTCPKeepAlive)
+      throws IOException, SQLException {
+    PGStream newStream = new PGStream(socketFactory, hostSpec, connectTimeout);
+
+    // Construct and send an ssl startup packet if requested.
+    if (trySSL) {
+      newStream = enableSSL(newStream, requireSSL, info, connectTimeout);
+    }
+
+    // Set the socket timeout if the "socketTimeout" property has been set.
+    int socketTimeout = PGProperty.SOCKET_TIMEOUT.getInt(info);
+    if (socketTimeout > 0) {
+      newStream.getSocket().setSoTimeout(socketTimeout * 1000);
+    }
+
+    // Enable TCP keep-alive probe if required.
+    newStream.getSocket().setKeepAlive(requireTCPKeepAlive);
+
+    // Try to set SO_SNDBUF and SO_RECVBUF socket options, if requested.
+    // If receiveBufferSize and send_buffer_size are set to a value greater
+    // than 0, adjust. -1 means use the system default, 0 is ignored since not
+    // supported.
+
+    // Set SO_RECVBUF read buffer size
+    int receiveBufferSize = PGProperty.RECEIVE_BUFFER_SIZE.getInt(info);
+    if (receiveBufferSize > -1) {
+      // value of 0 not a valid buffer size value
+      if (receiveBufferSize > 0) {
+        newStream.getSocket().setReceiveBufferSize(receiveBufferSize);
+      } else {
+        LOGGER.log(Level.WARNING, "Ignore invalid value for receiveBufferSize: {0}", receiveBufferSize);
+      }
+    }
+
+    // Set SO_SNDBUF write buffer size
+    int sendBufferSize = PGProperty.SEND_BUFFER_SIZE.getInt(info);
+    if (sendBufferSize > -1) {
+      if (sendBufferSize > 0) {
+        newStream.getSocket().setSendBufferSize(sendBufferSize);
+      } else {
+        LOGGER.log(Level.WARNING, "Ignore invalid value for sendBufferSize: {0}", sendBufferSize);
+      }
+    }
+
+    return newStream;
+
   }
 
   private List<String[]> getParametersForStartup(String user, String database, Properties info) {
@@ -681,6 +692,29 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
       Utils.escapeLiteral(sql, appName, queryExecutor.getStandardConformingStrings());
       sql.append("'");
       SetupQueryRunner.run(queryExecutor, sql.toString(), false);
+    }
+
+    /*
+     * If we're asked to enable statement level rollback at connect-time, we'll
+     * do it in the initial queries. The query executor expects this to be
+     * preset by us and its internal autosave property will already be 'server'
+     * if the user requested it, so we need to make the server side state
+     * match.
+     *
+     * This is a little ugly as it assumes the server hasn't defaulted to
+     * transaction_rollback_scope=statement, but we can't do much about that
+     * without yet another round-trip that every client pays the price of to
+     * see if it supports it and check the current value.
+     */
+    AutoSave autoSave = AutoSave.of(PGProperty.AUTOSAVE.get(info));
+    if (autoSave == AutoSave.SERVER)
+    {
+      try {
+        SetupQueryRunner.run(queryExecutor, "SET transaction_rollback_scope = 'statement'", false);
+      } catch(PSQLException exp) {
+        throw new PSQLException(GT.tr("Error while setting transaction_rollback_scope=statement, required for autosave=server"),
+            PSQLState.CONNECTION_UNABLE_TO_CONNECT, exp);
+      }
     }
 
   }

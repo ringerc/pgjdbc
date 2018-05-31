@@ -1102,7 +1102,7 @@ public class PgConnection implements BaseConnection {
   }
 
   @Override
-  public void setAutosave(AutoSave autoSave) {
+  public void setAutosave(AutoSave autoSave) throws SQLException {
     queryExecutor.setAutoSave(autoSave);
     LOGGER.log(Level.FINE, "  setAutosave = {0}", autoSave.value());
   }

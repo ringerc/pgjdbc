@@ -131,7 +131,8 @@ import org.junit.runners.Suite;
         CopyLargeFileTest.class,
         ServerErrorTest.class,
         UpsertTest.class,
-        OuterJoinSyntaxTest.class
+        OuterJoinSyntaxTest.class,
+        BatchAutoSaveTest.class
 })
 public class Jdbc2TestSuite {
 }

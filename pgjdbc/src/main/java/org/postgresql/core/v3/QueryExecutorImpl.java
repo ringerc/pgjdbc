@@ -124,12 +124,18 @@ public class QueryExecutorImpl extends QueryExecutorBase {
    */
   private final CommandCompleteParser commandCompleteParser = new CommandCompleteParser();
 
+  /*
+   * Does the server support the transaction_rollback_scope=statement?
+   */
+  private boolean statementRollbackSupported;
+
   public QueryExecutorImpl(PGStream pgStream, String user, String database,
-      int cancelSignalTimeout, Properties info) throws SQLException, IOException {
+      int cancelSignalTimeout, Properties info, boolean statementRollbackSupported) throws SQLException, IOException {
     super(pgStream, user, database, cancelSignalTimeout, info);
 
     this.allowEncodingChanges = PGProperty.ALLOW_ENCODING_CHANGES.getBoolean(info);
     this.replicationProtocol = new V3ReplicationProtocol(this, pgStream);
+    this.statementRollbackSupported = statementRollbackSupported;
     readStartupMessages();
   }
 
@@ -350,7 +356,7 @@ public class QueryExecutorImpl extends QueryExecutorBase {
         && getAutoSave() != AutoSave.NEVER
         // If query has no resulting fields, it cannot fail with 'cached plan must not change result type'
         // thus no need to set a safepoint before such query
-        && (getAutoSave() == AutoSave.ALWAYS
+        && ( (getAutoSave() == AutoSave.ALWAYS && !statementRollbackSupported)
         // If CompositeQuery is observed, just assume it might fail and set the savepoint
         || !(query instanceof SimpleQuery)
         || ((SimpleQuery) query).getFields() != null)) {
@@ -377,7 +383,14 @@ public class QueryExecutorImpl extends QueryExecutorBase {
         e.setNextException(e2);
       }
     }
-    throw e;
+
+    if (e != null) {
+      throw e;
+    }
+  }
+
+  private boolean isAutoSave() {
+    return getAutoSave() == AutoSave.ALWAYS || getAutoSave() == AutoSave.SERVER;
   }
 
   // Deadlock avoidance:
@@ -454,7 +467,6 @@ public class QueryExecutorImpl extends QueryExecutorBase {
     ResultHandler handler = batchHandler;
     try {
       handler = sendQueryPreamble(batchHandler, flags);
-      autosave = sendAutomaticSavepoint(queries[0], flags);
       estimatedReceiveBufferBytes = 0;
 
       for (int i = 0; i < queries.length; ++i) {
@@ -464,18 +476,40 @@ public class QueryExecutorImpl extends QueryExecutorBase {
           parameters = SimpleQuery.NO_PARAMETERS;
         }
 
+        autosave = sendAutomaticSavepoint(queries[i], flags);
+
         sendQuery(query, parameters, maxRows, fetchSize, flags, handler, batchHandler);
 
-        if (handler.getException() != null) {
+        if (isAutoSave()) {
+          if ((flags & QueryExecutor.QUERY_EXECUTE_AS_SIMPLE) == 0) {
+            sendSync(getAutoSave() != AutoSave.SERVER || autosave);
+          }
+          if (getAutoSave() != AutoSave.SERVER || autosave)
+          {
+              // With server-side autosave we don't have to process results
+              // from each query before dispatching the next because we don't
+              // have SAVEPOINT statements or any need for explicit rollback.
+              //
+              // We still needed to send Sync to allow protocol error recovery.
+              processResults(handler, flags);
+              estimatedReceiveBufferBytes = 0;
+          }
+        }
+
+        rollbackIfRequired(autosave, null);
+
+        if (handler.getException() != null && !isAutoSave()) {
           break;
         }
       }
 
-      if (handler.getException() == null) {
+      if ((!isAutoSave() && handler.getException() == null) || (getAutoSave() == AutoSave.SERVER && !autosave)) {
         if ((flags & QueryExecutor.QUERY_EXECUTE_AS_SIMPLE) != 0) {
           // Sync message is not required for 'Q' execution as 'Q' ends with ReadyForQuery message
           // on its own
         } else {
+          // If we're in autosave=server this might be an extra Sync but that's
+          // harmless and ensures we flush.
           sendSync();
         }
         processResults(handler, flags);
@@ -1323,8 +1357,8 @@ public class QueryExecutorImpl extends QueryExecutorBase {
     if (subqueries == null) {
       flushIfDeadlockRisk(query, disallowBatching, resultHandler, batchHandler, flags);
 
-      // If we saw errors, don't send anything more.
-      if (resultHandler.getException() == null) {
+      // If we saw errors and autosave is off, don't send anything more.
+      if (resultHandler.getException() == null || isAutoSave()) {
         sendOneQuery((SimpleQuery) query, (SimpleParameterList) parameters, maxRows, fetchSize,
             flags);
       }
@@ -1333,8 +1367,8 @@ public class QueryExecutorImpl extends QueryExecutorBase {
         final Query subquery = subqueries[i];
         flushIfDeadlockRisk(subquery, disallowBatching, resultHandler, batchHandler, flags);
 
-        // If we saw errors, don't send anything more.
-        if (resultHandler.getException() != null) {
+        // If we saw errors and autosave is off, don't send anything more.
+        if (resultHandler.getException() != null && !isAutoSave()) {
           break;
         }
 
@@ -1358,14 +1392,22 @@ public class QueryExecutorImpl extends QueryExecutorBase {
   //
 
   private void sendSync() throws IOException {
+    sendSync(true);
+  }
+
+  private void sendSync(boolean flush) throws IOException {
     LOGGER.log(Level.FINEST, " FE=> Sync");
 
     pgStream.sendChar('S'); // Sync
     pgStream.sendInteger4(4); // Length
-    pgStream.flush();
-    // Below "add queues" are likely not required at all
-    pendingExecuteQueue.add(new ExecuteRequest(sync, null, true));
-    pendingDescribePortalQueue.add(sync);
+    if (flush) {
+      pgStream.flush();
+      // Below "add queues" are likely not required at all
+      pendingExecuteQueue.add(new ExecuteRequest(sync, null, true));
+      pendingDescribePortalQueue.add(sync);
+    }
+
+    pendingSyncQueue.add(flush);
   }
 
   private void sendParse(SimpleQuery query, SimpleParameterList params, boolean oneShot)
@@ -2245,7 +2287,11 @@ public class QueryExecutorImpl extends QueryExecutorBase {
 
         case 'Z': // Ready For Query (eventual response to Sync)
           receiveRFQ();
-          if (!pendingExecuteQueue.isEmpty() && pendingExecuteQueue.peekFirst().asSimple) {
+          if (!pendingSyncQueue.isEmpty() && !pendingSyncQueue.removeFirst()) {
+              break;
+          }
+
+          if ( !pendingExecuteQueue.isEmpty() && pendingExecuteQueue.peekFirst().asSimple) {
             tuples = null;
 
             ExecuteRequest executeRequest = pendingExecuteQueue.removeFirst();
@@ -2651,6 +2697,58 @@ public class QueryExecutorImpl extends QueryExecutorBase {
     }
   }
 
+  @Override
+  public void setAutoSave(AutoSave autoSave) throws SQLException {
+
+    if (this.autoSave == autoSave)
+      return;
+
+    if (this.autoSave == AutoSave.SERVER || autoSave == AutoSave.SERVER)
+    {
+      /*
+       * If we're switching autosave modes at runtime we must not be within a
+       * transaction. For BC we only enforce this when going to/from
+       * autosave=server.
+       */
+      if (getTransactionState() != TransactionState.IDLE)
+        throw new PSQLException(
+          GT.tr("autosave mode cannot be switched within an open transaction"),
+          PSQLState.TRANSACTION_STATE_INVALID);
+
+      /*
+       * We must actually switch the value of transaction_rollback_scope on the
+       * server side for this to take effect. It's part of why we can't be in a
+       * transaction.
+       */
+      SimpleQuery q = (autoSave == AutoSave.SERVER) ? autoSaveServerEnableQuery : autoSaveServerDisableQuery;
+
+      /*
+       * If we can't set the autosave mode server-side here we'll throw and
+       * leave the value for the executor unchanged. This might make it
+       * mismatched if the server changed it then reported an error after
+       * applying the change (GUCs aren't transactional). We can't do much
+       * about that without constantly re-checking it before each query since
+       * it isn't GUC_REPORT, and it's pretty unlikely. An app is likely to
+       * just discard the connection anyway.
+       */
+      try {
+        execute(q, SimpleQuery.NO_PARAMETERS, new ResultHandlerDelegate(null),
+            1, 0, QUERY_NO_RESULTS | QUERY_NO_METADATA | QUERY_EXECUTE_AS_SIMPLE | QUERY_SUPPRESS_BEGIN);
+      } catch (SQLException exc) {
+        throw new PSQLException(
+          GT.tr("autosave mode could not be switched on the connection"),
+            PSQLState.CONNECTION_FAILURE, exc);
+      }
+
+      if (getTransactionState() != TransactionState.IDLE)
+        throw new PSQLException("internal error - setting autosave mode changed transaction state; expected " + TransactionState.IDLE.toString() + " got " + getTransactionState().toString(),
+		  PSQLState.TRANSACTION_STATE_INVALID);
+    }
+
+    this.autoSave = autoSave;
+  }
+
+
   public void setTimeZone(TimeZone timeZone) {
     this.timeZone = timeZone;
   }
@@ -2711,6 +2809,7 @@ public class QueryExecutorImpl extends QueryExecutorBase {
   private final Deque<DescribeRequest> pendingDescribeStatementQueue =
       new ArrayDeque<DescribeRequest>();
   private final Deque<SimpleQuery> pendingDescribePortalQueue = new ArrayDeque<SimpleQuery>();
+  private final Deque<Boolean> pendingSyncQueue = new ArrayDeque<Boolean>();
 
   private long nextUniqueID = 1;
   private final boolean allowEncodingChanges;
@@ -2745,5 +2844,15 @@ public class QueryExecutorImpl extends QueryExecutorBase {
   private final SimpleQuery restoreToAutoSave =
       new SimpleQuery(
           new NativeQuery("ROLLBACK TO SAVEPOINT PGJDBC_AUTOSAVE", new int[0], false, SqlCommand.BLANK),
+          null, false);
+
+  private final SimpleQuery autoSaveServerEnableQuery =
+      new SimpleQuery(
+          new NativeQuery("SET transaction_rollback_scope = 'statement'", new int[0], false, SqlCommand.BLANK),
+          null, false);
+
+  private final SimpleQuery autoSaveServerDisableQuery =
+      new SimpleQuery(
+          new NativeQuery("SET transaction_rollback_scope = 'transaction'", new int[0], false, SqlCommand.BLANK),
           null, false);
 }

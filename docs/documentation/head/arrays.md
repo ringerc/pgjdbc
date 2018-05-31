@@ -5,8 +5,8 @@ header: Chapter 9. PostgreSQL™ Extensions to the JDBC API
 resource: media
 previoustitle: Physical and Logical replication API
 previous: replication.html
-nexttitle: Chapter 10. Using the Driver in a Multithreaded or a Servlet Environment
-next: thread.html
+nexttitle: Autosave
+next: autosave.html
 ---
 
 PostgreSQL™ provides robust support for array data types as column types, function arguments

@@ -8,6 +8,7 @@ package org.postgresql.jdbc;
 public enum AutoSave {
   NEVER,
   ALWAYS,
+  SERVER,
   CONSERVATIVE;
 
   private final String value;

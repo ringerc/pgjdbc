@@ -79,7 +79,7 @@ public class BatchResultHandler extends ResultHandlerBase {
       resultIndex--;
       // If exception thrown, no need to collect generated keys
       // Note: some generated keys might be secured in generatedKeys
-      if (updateCount > 0 && (getException() == null || isAutoCommit())) {
+      if (updateCount > 0 && (getException() == null || isAutoCommit() || isAutoSave())) {
         allGeneratedRows.add(latestGeneratedRows);
         if (generatedKeys == null) {
           generatedKeys = latestGeneratedKeysRs;
@@ -107,9 +107,14 @@ public class BatchResultHandler extends ResultHandlerBase {
     }
   }
 
+  private boolean isAutoSave() {
+      AutoSave autoSave = pgStatement.getPGConnection().getAutosave();
+      return autoSave == AutoSave.ALWAYS || autoSave == AutoSave.SERVER;
+  }
+
   @Override
   public void secureProgress() {
-    if (isAutoCommit()) {
+    if (isAutoCommit() || isAutoSave()) {
       committedRows = resultIndex;
       updateGeneratedKeys();
     }
@@ -132,7 +137,12 @@ public class BatchResultHandler extends ResultHandlerBase {
   @Override
   public void handleError(SQLException newError) {
     if (getException() == null) {
-      Arrays.fill(updateCounts, committedRows, updateCounts.length, Statement.EXECUTE_FAILED);
+      if (isAutoSave()) {
+        Arrays.fill(updateCounts, resultIndex, updateCounts.length, Statement.EXECUTE_FAILED);
+      } else {
+        Arrays.fill(updateCounts, committedRows, updateCounts.length, Statement.EXECUTE_FAILED);
+      }
+
       if (allGeneratedRows != null) {
         allGeneratedRows.clear();
       }
@@ -158,7 +168,7 @@ public class BatchResultHandler extends ResultHandlerBase {
     updateGeneratedKeys();
     SQLException batchException = getException();
     if (batchException != null) {
-      if (isAutoCommit()) {
+      if (isAutoCommit() || isAutoSave()) {
         // Re-create batch exception since rows after exception might indeed succeed.
         BatchUpdateException newException = new BatchUpdateException(
             batchException.getMessage(),

@@ -229,8 +229,9 @@ public interface PGConnection {
    * Configures if connection should use automatic savepoints.
    * @see PGProperty#AUTOSAVE
    * @param autoSave connection configuration regarding automatic per-query savepoints
+   * @throws SQLException if the autosave mode cannot be changed during a transaction or due to a server side error
    */
-  void setAutosave(AutoSave autoSave);
+  void setAutosave(AutoSave autoSave) throws SQLException;
 
   /**
    * @return replication API for the current connection

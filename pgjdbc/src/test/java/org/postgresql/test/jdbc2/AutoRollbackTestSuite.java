@@ -40,7 +40,7 @@ public class AutoRollbackTestSuite extends BaseTest4 {
   private enum FailMode {
     /**
      * Executes "select 1/0" and causes transaction failure (if autocommit=no).
-     * Mitigation: "autosave=always" or "autocommit=true"
+     * Mitigation: "autosave=always or server" or "autocommit=true"
      */
     SELECT,
     /**
@@ -53,7 +53,7 @@ public class AutoRollbackTestSuite extends BaseTest4 {
      * Mitigation:
      *  1) QueryExecutor tracks "DEALLOCATE ALL" responses ({@see org.postgresql.core.QueryExecutor#setFlushCacheOnDeallocate(boolean)}
      *  2) QueryExecutor tracks "prepared statement name is invalid" and unprepares relevant statements ({@link org.postgresql.core.v3.QueryExecutorImpl#processResults(ResultHandler, int)}
-     *  3) "autosave in (always, conservative)"
+     *  3) "autosave in (always, server, conservative)"
      *  4) Non-transactional cases are healed by retry (when no transaction present, just retry is possible)
      */
     DEALLOCATE,
@@ -134,7 +134,12 @@ public class AutoRollbackTestSuite extends BaseTest4 {
 
   @Override
   public void setUp() throws Exception {
-    super.setUp();
+    try {
+      super.setUp();
+    } catch (SQLException sqle) {
+      Assume.assumeFalse("AutoSave==SERVER - skipping", autoSave == AutoSave.SERVER);
+      throw sqle;
+    }
     if (testSql == TestStatement.WITH_INSERT_SELECT) {
       assumeMinimumServerVersion(ServerVersion.v9_1);
     }
@@ -153,13 +158,15 @@ public class AutoRollbackTestSuite extends BaseTest4 {
 
   @Override
   public void tearDown() throws SQLException {
-    try {
-      con.setAutoCommit(true);
-      TestUtil.dropTable(con, "rollbacktest");
-    } catch (Exception e) {
-      e.printStackTrace();
+    if (con != null) {
+      try {
+        con.setAutoCommit(true);
+        TestUtil.dropTable(con, "rollbacktest");
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+      super.tearDown();
     }
-    super.tearDown();
   }
 
   @Override
@@ -269,8 +276,8 @@ public class AutoRollbackTestSuite extends BaseTest4 {
     }
 
     PgConnection pgConnection = con.unwrap(PgConnection.class);
-    if (autoSave == AutoSave.ALWAYS) {
-      Assert.assertNotEquals("In AutoSave.ALWAYS, transaction should not fail",
+    if (autoSave == AutoSave.ALWAYS || autoSave == AutoSave.SERVER) {
+      Assert.assertNotEquals("In AutoSave." + autoSave + ", transaction should not fail",
           TransactionState.FAILED, pgConnection.getTransactionState());
     }
     if (autoCommit == AutoCommit.NO) {
@@ -318,7 +325,7 @@ public class AutoRollbackTestSuite extends BaseTest4 {
       rowsExpected += testSql.rowsInserted;
       executeSqlSuccess();
     } catch (SQLException e) {
-      if (autoSave != AutoSave.ALWAYS && TRANS_KILLERS.contains(failMode) && autoCommit == AutoCommit.NO) {
+      if (autoSave != AutoSave.ALWAYS && autoSave != AutoSave.SERVER && TRANS_KILLERS.contains(failMode) && autoCommit == AutoCommit.NO) {
         Assert.assertEquals(
             "AutoSave==" + autoSave + ", thus statements should fail with 'current transaction is aborted...', "
                 + " error message is " + e.getMessage(),
@@ -371,7 +378,7 @@ public class AutoRollbackTestSuite extends BaseTest4 {
     if (autoCommit == AutoCommit.YES) {
       // in autocommit everything should just work
     } else if (TRANS_KILLERS.contains(failMode)) {
-      if (autoSave != AutoSave.ALWAYS) {
+      if (autoSave != AutoSave.ALWAYS && autoSave != AutoSave.SERVER) {
         Assert.fail(
             "autosave= " + autoSave + " != ALWAYS, thus the transaction should be killed");
       }

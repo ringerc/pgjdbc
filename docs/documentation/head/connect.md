@@ -182,12 +182,18 @@ Connection conn = DriverManager.getConnection(url);
 	
 * **autosave** = String
 
-    Specifies what the driver should do if a query fails. In `autosave=always` mode, JDBC driver sets a savepoint before each query,
-    and rolls back to that savepoint in case of failure. In `autosave=never` mode (default), no savepoint dance is made ever.
-    In `autosave=conservative` mode, savepoint is set for each query, however the rollback is done only for rare cases
-    like 'cached statement cannot change return type' or 'statement XXX is not valid' so JDBC driver rollsback and retries
+  Specifies what the driver should do if a query fails:
+  
+  * `never`: any error aborts the whole transaction
+  * `conservative`: like `never` but defends against some rare spurious errors
+    at a significant performance cost
+  * `always`: statement-level rollback using client side implicit savepoints,
+    at a significant performance cost
+  * `server`: statement-level rollback using automatic server-side savepoints
+    with auto-rollback, at a moderate performance cost. Requires 2ndQPostgres;
+    connections will fail if the feature is not supported by the server.
 
-    The default is `never` 
+  See ["Autosave" in "Extensions to the JDBC API"](autosave.html) for details.
 
 * **binaryTransferEnable** = String
 

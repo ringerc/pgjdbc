@@ -394,7 +394,7 @@ public enum PGProperty {
           + "and rolls back to that savepoint in case of failure. In autosave=never mode (default), no savepoint dance is made ever. "
           + "In autosave=conservative mode, safepoint is set for each query, however the rollback is done only for rare cases"
           + " like 'cached statement cannot change return type' or 'statement XXX is not valid' so JDBC driver rollsback and retries", false,
-      "always", "never", "conservative"),
+      "server", "always", "never", "conservative"),
 
   /**
    * Configure optimization to enable batch insert re-writing.

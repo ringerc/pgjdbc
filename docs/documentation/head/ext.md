@@ -18,6 +18,7 @@ next: geometric.html
 * [Server Prepared Statements](server-prepare.html)
 * [Physical and Logical replication API](replication.html)
 * [Arrays](arrays.html)
+* [Autosave](autosave.html)
 
 PostgreSQL™ is an extensible database system. You can add your own functions to
 the server, which can then be called from queries, or even add your own data types.

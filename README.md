@@ -4,6 +4,8 @@
 
 PostgreSQL JDBC Driver (PgJDBC for short) allows Java programs to connect to a PostgreSQL database using standard, database independent Java code. Is an open source JDBC driver written in Pure Java (Type 4), and communicates in the PostgreSQL native network protocol.
 
+**This is a 2ndQuadrant-patched version of PgJDBC - see the pom.xml for version. See the documenation and the git history for details of changes.**.
+
 ### Status
 [![Build Status](https://travis-ci.org/pgjdbc/pgjdbc.svg?branch=master)](https://travis-ci.org/pgjdbc/pgjdbc)
 [![codecov.io](http://codecov.io/github/pgjdbc/pgjdbc/coverage.svg?branch=master)](http://codecov.io/github/pgjdbc/pgjdbc?branch=master)
@@ -145,7 +147,7 @@ In addition to the standard connection parameters the driver supports a number o
 | loadBalanceHosts              | Boolean | false   | If disabled hosts are connected in the given order. If enabled hosts are chosen randomly from the set of suitable candidates |
 | socketFactory                 | String  | null    | Specify a socket factory for socket creation |
 | socketFactoryArg              | String  | null    | Argument forwarded to constructor of SocketFactory class. |
-| autosave                      | String  | never   | Specifies what the driver should do if a query fails, possible values: always, never, conservative |
+| autosave                      | String  | never   | Specifies what the driver should do if a query fails, possible values: server, always, never, conservative |
 | preferQueryMode               | String  | extended | Specifies which mode is used to execute queries to database, possible values: extended, extendedForPrepared, extendedCacheEverything, simple |
 | reWriteBatchedInserts         | Boolean | false  | Enable optimization to rewrite and collapse compatible INSERT statements that are batched. |
 
