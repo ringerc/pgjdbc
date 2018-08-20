@@ -38,7 +38,7 @@
     <url>https://github.com/2ndQuadrant/pgjdbc</url>
     <connection>scm:git:https://github.com/2ndQuadrant/pgjdbc.git</connection>
     <developerConnection>scm:git:git@github.com:2ndQuadrant/pgjdbc.git</developerConnection>
-    <tag>REL42.2.4_2ndq_r1_1</tag>
+    <tag>REL2Q.42.2.4.1</tag>
   </scm>
 
   <build>
@@ -61,6 +61,7 @@
                  <directory>${basedir}/docs/documentation/head/template/</directory>
                  <includes>
                    <include>index.html</include>
+                   <include>setup.md</include>
                  </includes>
                  <filtering>true</filtering>
                </resource>
