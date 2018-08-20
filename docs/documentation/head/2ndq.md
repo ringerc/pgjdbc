@@ -11,4 +11,4 @@ Changes in this driver vs the community PostgreSQL driver of the same major vers
   new `AutoSave.SERVER` enum value. See ["autosave" in "Extensions to the JDBC API"](autosave.html)
   for details.
 
-  Added in `42.2.3-2ndq-r1_1`
+  Added in `42.2.3.1` (tag `REL2Q.42.2.4.1`)
