@@ -6,12 +6,28 @@
     <version>1.1.5</version>
   </parent>
 
+  <!--
+    Note the changed groupId and artifactId vs community PostgreSQL.
+  -->
+  <groupId>com.2ndQuadrant</groupId>
   <artifactId>pgjdbc-aggregate</artifactId>
   <packaging>pom</packaging>
   <name>PostgreSQL JDBC Driver aggregate</name>
-  <version>42.2.4_2ndq_r1_1</version>
+  <!--
+     If you change this you must change pgjdbc/pom.xml too.
+
+     The version must comply with OSGi version requirements, which
+     enforce semver. It should also conform to Maven conventions
+     by having -SNAPSHOT for interim builds, and removing it for
+     tagged releases.
+
+     The 4th version digit is the 2ndQ patch level on top of the
+     base PgJDBC driver. It does not relate to the 2ndQPostgres 
+     server revision.
+  -->
+  <version>42.2.4.1</version>
   <description>PgJDBC aggregate project</description>
-  <url>https://github.com/pgjdbc/pgjdbc</url>
+  <url>https://github.com/2ndQuadrant/pgjdbc</url>
 
   <modules>
     <module>pgjdbc</module>
@@ -19,10 +35,41 @@
 
   <!-- If inherited from parent pom, maven tries to add artifactId to URLs -->
   <scm>
-    <url>https://github.com/pgjdbc/pgjdbc</url>
-    <connection>scm:git:https://github.com/pgjdbc/pgjdbc.git</connection>
-    <developerConnection>scm:git:git@github.com:pgjdbc/pgjdbc.git</developerConnection>
-    <tag>REL42.2.4</tag>
+    <url>https://github.com/2ndQuadrant/pgjdbc</url>
+    <connection>scm:git:https://github.com/2ndQuadrant/pgjdbc.git</connection>
+    <developerConnection>scm:git:git@github.com:2ndQuadrant/pgjdbc.git</developerConnection>
+    <tag>REL42.2.4_2ndq_r1_1</tag>
   </scm>
+
+  <build>
+   <plugins>
+     <plugin>
+       <artifactId>maven-resources-plugin</artifactId>
+       <version>2.7</version>
+       <executions>
+         <execution>
+           <id>copy-resources</id>
+           <phase>package</phase>
+           <goals>
+             <goal>copy-resources</goal>
+           </goals>
+           <configuration>
+             <overwrite>true</overwrite>
+             <outputDirectory>${basedir}/docs/documentation/head/</outputDirectory>
+             <resources>
+               <resource>
+                 <directory>${basedir}/docs/documentation/head/template/</directory>
+                 <includes>
+                   <include>index.html</include>
+                 </includes>
+                 <filtering>true</filtering>
+               </resource>
+             </resources>
+           </configuration>
+         </execution>
+       </executions>
+     </plugin>
+   </plugins>
+ </build>
 
 </project>

@@ -25,12 +25,28 @@
 				<div class="BOOK">
 					<a name="POSTGRES" id="POSTGRES"></a>
   					<div class="TITLEPAGE">
-						<h1 class="TITLE">The PostgreSQL JDBC Interface</h1>
+						<h1 class="TITLE">The PostgreSQL JDBC Interface version ${project.version}</h1>
     						<hr />
   					</div>
 
-                    <p>This is a <b>2ndQuadrant patched version of PgJDBC</b>. See <a href="2ndq.html">2ndQ release notes</a>
-					for details.</p>
+                    <p>Documentation for PgJDBC ${project.version}.</p>.
+
+<p>
+  This is a <b>2ndQuadrant patched version of PgJDBC</b>.
+  See <a href="2ndq.html">2ndQ release notes</a> for details.
+  The jar file name follows the pattern
+  <tt>secondquadrant-postgres-${version}.jar</tt> not PgJDBC upstream's
+  <tt>postgresql-${version}.jar</tt>. Maven users must use the maven
+  co-ordinates <tt>com.secondquadrant:secondquadrant-postgres:${project.version}</tt>
+  rather than PgJDBC's <tt>org.postgresql:postgresql:${project.version}</tt>, e.g.:
+<pre>
+  &lt;dependency&gt;
+    &lt;groupId&gt;${project.groupId}&lt;/groupId&gt;
+    &lt;artifactId&gt;${project.artifactId}&lt;/artifactId&gt;
+    &lt;version&gt;${project.version}&lt;/version&gt;
+  &lt;/dependency&gt;
+</pre>
+</p>
 
 					<div class="TOC">
 						<h3 class="c2">Table of Contents</h3>
