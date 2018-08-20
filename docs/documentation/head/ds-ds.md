@@ -29,10 +29,10 @@ project.
 <a name="ds-ds-imp"></a>
 **Table 11.2. `DataSource` Implementations**
 
-  Pooling   Implementation Class
-  --------- -----------------------------------------
-  No        \`org.postgresql.ds.PGSimpleDataSource
-  Yes       \`org.postgresql.ds.PGPoolingDataSource
+  **Pooling**  **Implementation Class**
+  ------------ -----------------------------------------
+  No           `org.postgresql.ds.PGSimpleDataSource`
+  Yes          `org.postgresql.ds.PGPoolingDataSource`
 
 
 
@@ -44,7 +44,7 @@ so there are get and set methods for each of these properties.
 **Table 11.3. `DataSource` Configuration Properties**
 
   --------------------------------------------------------------------------------
-  Property       Type      Description
+  **Property**   **Type**  **Description**
   -------------- --------- -------------------------------------------------------
   serverName     STRING    PostgreSQL™ database server host name
 
@@ -72,7 +72,7 @@ which are shown in [Table 11.4, “Additional Pooling `DataSource` Configuratio
 **Table 11.4. Additional Pooling `DataSource` Configuration Properties**
 
   --------------------------------------------------------------------------------
-  Property             Type     Description
+  **Property**         **Type** **Description**
   -------------------- -------- --------------------------------------------------
   dataSourceName       STRING   Every pooling DataSource must have a unique name.
   

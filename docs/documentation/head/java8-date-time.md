@@ -16,11 +16,11 @@ The PostgreSQL™ JDBC driver implements native support for the
 <a name="8-date-time-supported-data-types"></a>
 **Table 5.1. Supported Java 8 Date and Time classes**
 
-  PostgreSQL™                         Java SE 8
+  **PostgreSQL™**                     **Java SE 8**
   ----------------------------------- ----------------
   DATE                                LocalDate
-  TIME \[ WITHOUT TIME ZONE \]        LocalTime
-  TIMESTAMP \[ WITHOUT TIME ZONE \]   LocalDateTime
+  TIME [ WITHOUT TIME ZONE ]          LocalTime
+  TIMESTAMP [ WITHOUT TIME ZONE ]     LocalDateTime
   TIMESTAMP WITH TIME ZONE            OffsetDateTime
 
 

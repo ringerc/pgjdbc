@@ -64,11 +64,11 @@ The properties are `loggerLevel` and `loggerFile`:
 
 This option enable the `java.util.logging.Logger` Level of the driver based on the following mapping:
 
-  loggerLevel   java.util.logging
-  ------------- -------------------
-  OFF           OFF
-  DEBUG         FINE
-  TRACE         FINEST
+  **loggerLevel**  **java.util.logging**
+  ---------------- -------------------
+  OFF              OFF
+  DEBUG            FINE
+  TRACE            FINEST
 
 
 

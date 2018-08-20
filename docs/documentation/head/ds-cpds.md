@@ -20,7 +20,7 @@ so there are get and set methods for each of these properties.
 **Table 11.1. `ConnectionPoolDataSource` Configuration Properties**
 
   --------------------------------------------------------------------------------
-  Property            Type      Description
+  **Property**        **Type**  **Description**
   ------------------- --------- --------------------------------------------------
   serverName          STRING    PostgreSQL™ database server host name
 
