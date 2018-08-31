@@ -16,30 +16,14 @@ The PostgreSQL™ JDBC driver implements native support for the
 <a name="8-date-time-supported-data-types"></a>
 **Table 5.1. Supported Java 8 Date and Time classes**
 
-<table summary="Supported data type" class="CALSTABLE" border="1">
-  <tr>
-    <th>PostgreSQL™</th>
-    <th>Java SE 8</th>
-  </tr>
-  <tbody>
-    <tr>
-      <td>DATE</td>
-      <td>LocalDate</td>
-    </tr>
-    <tr>
-      <td>TIME [ WITHOUT TIME ZONE ]</td>
-      <td>LocalTime</td>
-    </tr>
-    <tr>
-      <td>TIMESTAMP [ WITHOUT TIME ZONE ]</td>
-      <td>LocalDateTime</td>
-    </tr>
-    <tr>
-      <td>TIMESTAMP WITH TIME ZONE</td>
-      <td>OffsetDateTime</td>
-    </tr>
-  </tbody>
-</table>
+  **PostgreSQL™**                     **Java SE 8**
+  ----------------------------------- ----------------
+  DATE                                LocalDate
+  TIME [ WITHOUT TIME ZONE ]          LocalTime
+  TIMESTAMP [ WITHOUT TIME ZONE ]     LocalDateTime
+  TIMESTAMP WITH TIME ZONE            OffsetDateTime
+
+
 
 This is closely aligned with tables B-4 and B-5 of the JDBC 4.2 specification.
 Note that `ZonedDateTime`, `Instant` and
