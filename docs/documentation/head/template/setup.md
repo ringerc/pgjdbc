@@ -56,8 +56,8 @@ to
 so a suitable `pom.xml` dependency declaration would be:
 
     <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>${project.artifactId}</artifactId>
+      <groupId>com.2ndQuadrant</groupId>
+      <artifactId>2ndQPostgres-jdbc</artifactId>
       <version>${project.version}</version>
     </dependency>
 
