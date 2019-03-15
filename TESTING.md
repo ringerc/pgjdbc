@@ -53,6 +53,29 @@ If the test suite reports errors or failures that you cannot
 explain, please post the relevant parts of the output to the
 mailing list pgsql-jdbc@postgresql.org.
 
+### Running individual tests
+
+During iterative devlopment it's desirable to run a single test
+or a subset of tests. The Maven SureFire plugin supports this
+per [the manual](https://maven.apache.org/surefire/maven-surefire-plugin/examples/single-test.html).
+
+Bare test class names may be used, so the simplest case
+for a single test class is:
+
+    mvn "-Dtest=ServerErrorTest" test
+
+or for a single test method:
+
+    mvn "-Dtest=ServerErrorTest#testPrimaryKey" test
+
+### Code style checking
+
+PgJDBC will by default run a code style check as part of the `test` Maven goal
+to help contributors get their changes ready to submit upsteam more easily.
+
+If you don't need that you can disable it by setting the property
+`-Dcheckstyle=false` or disable the profile with `mvn -P "!checkstyle"`
+
 ## 5 - Extending the test suite with new tests
 
 If you're not familiar with JUnit, we recommend that you

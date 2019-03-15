@@ -227,6 +227,38 @@
       </build>
     </profile>
 
+    <!-- Run checkstyle:check as part of 'test' unless -Dcheckstyle=false is set. -->
+    <profile>
+     <id>checkstyle</id>
+     <activation>
+       <property>
+         <name>checkstyle</name>
+         <value>!false</value>
+       </property>
+     </activation>
+     <build>
+       <plugins>
+         <plugin>
+           <groupId>org.apache.maven.plugins</groupId>
+           <artifactId>maven-checkstyle-plugin</artifactId>
+           <executions>
+             <execution>
+               <phase>test</phase>
+               <goals>
+                 <goal>check</goal>
+               </goals>
+             </execution>
+           </executions>
+         </plugin>
+       </plugins>
+     </build>
+    </profile>
+
+    <!--
+      There is also a release-artifacts profile that enables production of the
+      JavaDoc jar and source jar.
+    -->
+
   </profiles>
 
   <build>
