@@ -136,7 +136,7 @@ matrix:
         - REPLICATION=Y
         - COVERAGE=Y
         - MCENTRAL=Y
-        - JDOC=Y
+        - RELEASE_ARTIFACTS=Y   # includes JavaDoc, source jar, etc
     - jdk: oraclejdk8
       sudo: required
       addons:

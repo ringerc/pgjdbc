@@ -30,29 +30,45 @@ then
     MVN_PROFILES="$MVN_PROFILES,coverage"
 fi
 
+# We usually invoke checkstyle:check directly, but if you want to run it as
+# part of a wider build, use RUN_CHECKSTYLE=Y . Because we run it explicitly
+# in a .travis.yml matrix entry suppress it on Travis builds by default.
+if [[ "${RUN_CHECKSTYLE}" != *"Y"* ]];
+then
+    MVN_ARGS="$MVN_ARGS -Dcheckstyle=false"
+fi
+
 if [[ "${JDK}" == *"9"* ]];
 then
     export MAVEN_SKIP_RC=true
     MVN_ARGS="$MVN_ARGS -Dcurrent.jdk=1.9 -Djavac.target=1.9"
 fi
 
-if [[ "$JDOC" == *"Y"* ]];
+if [[ "$RELEASE_ARTIFACTS" == *"Y"* ]];
 then
-    # Build javadocs for Java 8 only
-    mvn ${MVN_ARGS} -P ${MVN_PROFILES},release-artifacts
-elif [[ "${TRAVIS_JDK_VERSION}" == *"jdk6"* ]];
+    # Produce JavaDoc jar, source jar, and other things we
+    # really only need to check in one profile.
+    MVN_PROFILES="${MVN_PROFILES},release-artifacts"
+fi
+
+# Support old JDKs not provided by Travis
+if [[ "${TRAVIS_JDK_VERSION}" == *"jdk6"* ]];
 then
     git clone --depth=50 https://github.com/pgjdbc/pgjdbc-jre6.git pgjdbc-jre6
-    cd pgjdbc-jre6
-    mvn ${MVN_ARGS} -P ${MVN_PROFILES},skip-unzip-jdk
+    pushd pgjdbc-jre6
+    MVN_PROFILES="$MVN_PROFILES,skip-unzip-jdk"
 elif [[ "${TRAVIS_JDK_VERSION}" == *"jdk7"* ]];
 then
     git clone --depth=50 https://github.com/pgjdbc/pgjdbc-jre7.git pgjdbc-jre7
-    cd pgjdbc-jre7
-    mvn ${MVN_ARGS} -P ${MVN_PROFILES},skip-unzip-jdk
+    pushd pgjdbc-jre7
+    MVN_PROFILES="$MVN_PROFILES,skip-unzip-jdk"
 else
-    mvn ${MVN_ARGS} -P ${MVN_PROFILES}
+    pushd .
 fi
+
+mvn ${MVN_ARGS} -P "${MVN_PROFILES}"
+
+popd
 
 if [[ "${COVERAGE}" == "Y" ]];
 then
