@@ -345,6 +345,12 @@
             <failsOnError>true</failsOnError>
             <consoleOutput>true</consoleOutput>
             <includeTestSourceDirectory>true</includeTestSourceDirectory>
+            <!--
+              We want to check the handwritten sources at not generated
+              sources at the default ${project.compileSourceRoots} location.
+            -->
+            <sourceDirectories>${project.build.sourceDirectory}</sourceDirectories>
+            <testSourceDirectories>${project.build.testSourceDirectory}</testSourceDirectories>
           </configuration>
         </plugin>
         <plugin>
